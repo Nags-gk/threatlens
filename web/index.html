@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThreatLens</title>
+<meta name="description" content="Threat modeling as code: STRIDE security design reviews for device platforms, running in your browser.">
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6ea;--accent:#1a73e8;--crit:#b3261e;--high:#d1541b;--med:#b7860b;--low:#5d6673;--chip:#eef1f5;--code:#f1f3f6}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--panel:#171a20;--ink:#e8eaed;--muted:#9aa3ad;--line:#2a2f37;--accent:#8ab4f8;--crit:#f28b82;--high:#fcad70;--med:#fdd663;--low:#9aa3ad;--chip:#22262d;--code:#12151a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{max-width:1240px;margin:auto;padding:26px 20px 6px}h1{margin:0;font-size:26px}header p{margin:6px 0 0;color:var(--muted);max-width:820px}
+header a{color:var(--accent);font-weight:600;text-decoration:none;margin-right:14px}
+main{max-width:1240px;margin:auto;padding:12px 20px 40px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+h2{font-size:15px;margin:0 0 10px}.muted{color:var(--muted)}.sub{color:var(--muted);font-size:12.5px;margin:-4px 0 10px}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
+select,button{font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 9px;max-width:100%}
+select{width:100%}button.primary{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer}button:disabled{opacity:.5}
+textarea{width:100%;min-height:440px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.kpi{border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:92px}.kpi b{display:block;font-size:20px}.kpi span{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:12px}
+.sev{font-weight:700;text-transform:uppercase;font-size:11px}.critical{color:var(--crit)}.high{color:var(--high)}.medium{color:var(--med)}.low{color:var(--low)}
+.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:1px 8px;font-size:12px;margin:1px 2px}
+.scroll{overflow-x:auto}#dfd{overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;min-height:120px}
+details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer}.err{color:var(--crit);white-space:pre-wrap}
+footer{max-width:1240px;margin:auto;padding:0 20px 40px;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>ThreatLens</h1>
+  <p>Threat modeling as code. Describe a system's trust zones, components and data flows in YAML; ThreatLens draws the data-flow diagram, runs a 35-rule STRIDE knowledge base focused on access, abuse and logging, scores each threat, and emits Markdown and SARIF. The Python engine runs in this page through Pyodide.</p>
+  <p><a href="https://github.com/Nags-gk/threatlens">GitHub</a><a href="https://github.com/Nags-gk/threatlens/blob/main/docs/benchmark.md">Benchmark</a><a href="https://github.com/Nags-gk/threatlens/blob/main/results/reviews/fleetops_as_built.md">Example review</a></p>
+</header>
+<main>
+  <section class="panel">
+    <h2>Architecture</h2>
+    <label for="ex">Example</label><select id="ex"></select>
+    <label for="mut">Seed a design flaw into this example (benchmark mutations)</label><select id="mut"><option value="">None</option></select>
+    <label for="yaml">Spec (YAML)</label><textarea id="yaml" spellcheck="false"></textarea>
+    <div class="row"><button class="primary" id="run" disabled>Loading engine…</button><button id="md" disabled>Download Markdown</button><button id="sarif" disabled>Download SARIF</button></div>
+  </section>
+  <section class="panel">
+    <h2>Review</h2>
+    <div id="status" class="muted">Starting Python…</div>
+    <div class="kpis" id="kpis"></div>
+    <h2>Data-flow diagram</h2><p class="sub">Zones ordered by trust. Dashed: plaintext or unauthenticated. Red border: open high or critical finding.</p>
+    <div id="dfd"></div>
+    <h2 style="margin-top:16px">Findings</h2>
+    <div class="scroll"><table id="findings"></table></div>
+    <div id="bench" style="margin-top:16px"></div>
+  </section>
+</main>
+<footer>Reference architectures model classes of consumer systems (smart home, wearables, managed devices, mobile carrier); they are not descriptions of any company's real design. The two "real" examples are my own projects, modeled from their source.</footer>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "strict", flowchart: {htmlLabels: true}});
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let py, last = null;
+
+async function boot() {
+  py = await loadPyodide();
+  await py.loadPackage("pyyaml");
+  const files = ["__init__.py", "model.py", "engine.py", "report.py", "bench.py", "kb.yml"];
+  py.FS.mkdirTree("/app/threatlens"); py.FS.mkdirTree("/app/examples/real");
+  for (const f of files) py.FS.writeFile(`/app/threatlens/${f}`, await (await fetch(`py/threatlens/${f}`)).text());
+  const examples = await (await fetch("py/examples.json")).json();
+  for (const e of examples) py.FS.writeFile(`/app/examples/${e.path}`, await (await fetch(`py/examples/${e.path}`)).text());
+  py.runPython(`import sys; sys.path.insert(0, "/app")
+import json, yaml
+from threatlens import model, engine, report, bench
+bench.EXAMPLES = __import__("pathlib").Path("/app/examples")
+def run(text):
+    raw = yaml.safe_load(text)
+    spec = model.load(raw)
+    f = engine.review(spec)
+    return json.dumps(dict(json=json.loads(report.to_json(spec, f)), md=report.to_markdown(spec, f), sarif=report.to_sarif(spec, f)))
+def muts(name):
+    raw = yaml.safe_load(open(f"/app/examples/{name}").read())
+    out = []
+    for op in bench.OPERATORS:
+        for m in op(raw):
+            out.append(dict(desc=m.description, rule=m.expected_rule, spec=yaml.safe_dump(m.spec, sort_keys=False)))
+    return json.dumps(out)`);
+  $("ex").innerHTML = examples.map(e => `<option value="${esc(e.path)}">${e.kind === "real" ? "Real: " : "Reference: "}${esc(e.path.replace("real/", "").replace(".yml", "").replaceAll("_", " "))}</option>`).join("");
+  $("ex").onchange = loadExample; $("mut").onchange = applyMutation; $("run").onclick = run;
+  $("run").disabled = false; $("run").textContent = "Run review";
+  await loadExample();
+  try { const b = await (await fetch("data/bench_rules.json")).json();
+    let html = `<h2>Seeded-flaw benchmark</h2><p class="sub">${b.mutations} single-flaw mutations of the four hardened references; a hit means the expected finding lands on the mutated element.</p>
+      <p>Rule engine: <b>${b.detected}/${b.mutations}</b> detected · findings on unmutated baselines: <b>${Object.values(b.baseline_findings).reduce((a, x) => a + x, 0)}</b></p>`;
+    try { const l = await (await fetch("data/bench_llm.json")).json();
+      html += `<p>${esc(l.model)} alone (no rule findings given): <b>${l.exact_hits}/${l.cases}</b> exact hits (${(100*l.exact_rate).toFixed(0)}%), right concept anywhere ${(100*l.concept_rate).toFixed(0)}%, guard rejected ${l.guard_rejections} of ${l.total_threats} suggestions.</p>`; } catch {}
+    $("bench").innerHTML = html; } catch {}
+}
+let mutList = [];
+async function loadExample() {
+  const p = $("ex").value;
+  $("yaml").value = py.FS.readFile(`/app/examples/${p}`, {encoding: "utf8"});
+  mutList = p.startsWith("real/") ? [] : JSON.parse(py.globals.get("muts")(p));
+  $("mut").innerHTML = '<option value="">None</option>' + mutList.map((m, i) => `<option value="${i}">${esc(m.rule)}: ${esc(m.desc)}</option>`).join("");
+  $("mut").disabled = !mutList.length;
+  await run();
+}
+async function applyMutation() {
+  const i = $("mut").value;
+  if (i === "") return loadExample();
+  $("yaml").value = mutList[+i].spec; await run();
+}
+async function run() {
+  $("status").className = "muted"; $("status").textContent = "Reviewing…";
+  try {
+    last = JSON.parse(py.globals.get("run")($("yaml").value));
+  } catch (e) {
+    const msg = String(e.message || e).split("\n").filter(l => l.trim()).pop();
+    $("status").className = "err"; $("status").textContent = "Spec error: " + msg; return;
+  }
+  const j = last.json, s = j.summary;
+  $("status").textContent = j.system;
+  $("kpis").innerHTML = [["open", s.open], ...Object.entries(s.by_rating), ["accepted", s.accepted]]
+    .map(([k, v]) => `<div class="kpi"><b class="${esc(k)}">${v}</b><span>${esc(k)}</span></div>`).join("");
+  try { const {svg} = await mermaid.render("g" + Date.now(), j.dfd); $("dfd").innerHTML = svg; } catch (e) { $("dfd").textContent = "Diagram error: " + e.message; }
+  const rows = j.findings;
+  $("findings").innerHTML = rows.length ? '<tr><th>Risk</th><th>Finding</th><th>Element</th><th>STRIDE · lens</th></tr>' + rows.map(f => `<tr>
+    <td><span class="sev ${esc(f.rating)}">${esc(f.rating)}</span><br>${f.risk}${f.status === "accepted" ? '<br><span class="chip">accepted</span>' : ''}</td>
+    <td><details><summary><b>${esc(f.rule)}</b> ${esc(f.title)}</summary><p>${esc(f.threat)}</p><p><b>Change:</b> ${esc(f.recommendation)}</p>
+      <p>${[f.cwe, f.capec, f.attack].filter(Boolean).map(x => `<span class="chip">${esc(x)}</span>`).join("")}</p>${f.accepted_reason ? `<p class="muted">Accepted: ${esc(f.accepted_reason)}</p>` : ""}</details></td>
+    <td><code>${esc(f.element)}</code></td><td>${esc(f.stride)}<br><span class="muted">${esc(f.category)}</span></td></tr>`).join("")
+    : '<tr><td class="muted">No findings. Try seeding a flaw from the menu.</td></tr>';
+  $("md").disabled = $("sarif").disabled = false;
+}
+const dl = (name, text, type) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); };
+$("md").onclick = () => dl("threat-model.md", last.md, "text/markdown");
+$("sarif").onclick = () => dl("threatlens.sarif", last.sarif, "application/json");
+boot().catch(e => { $("status").className = "err"; $("status").textContent = "Could not start Python: " + e.message; });
+</script>
+</body>
+</html>

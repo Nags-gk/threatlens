@@ -1,0 +1,32 @@
+name: Mobile carrier account and eSIM service (hardened reference)
+description: Subscribers sign in, activate eSIMs, port numbers in and out, and verify actions with SMS codes. Modeled on the class of system Google Fi belongs to; not Google's design.
+zones: {internet: 0, edge: 2, app: 3, data: 4, carrier_partner: 1, security: 5}
+components:
+  - {id: web_app, type: client, zone: internet}
+  - {id: api_gateway, type: gateway, zone: edge, internet_facing: true, controls: [rate_limit, waf, input_validation, generic_errors, non_root]}
+  - id: account_service
+    type: identity_provider
+    zone: app
+    internet_facing: true
+    handles: [login, account_recovery, sms_otp]
+    data: [credentials, pii, payment]
+    controls: [mfa, rate_limit, cooldown, breached_password_check, bot_detection, reauth, step_up, audit_logging, security_logging, notify_user, key_rotation]
+  - id: esim_service
+    type: service
+    zone: app
+    handles: [number_port, enrollment]
+    data: [pii, secrets]
+    controls: [step_up, notify_user, attestation, fraud_hold, audit_logging, secret_manager, non_root]
+  - {id: subscriber_db, type: datastore, zone: data, data: [pii, payment, location], controls: [encryption_at_rest, access_logging]}
+  - {id: sms_gateway, type: third_party, zone: carrier_partner}
+  - {id: log_sink, type: log_sink, zone: security, data: [logs], log_retention_days: 365, controls: [log_integrity, encryption_at_rest]}
+  - {id: detections, type: detection, zone: security, controls: [alerting, non_root]}
+flows:
+  - {id: f_web, from: web_app, to: api_gateway, protocol: https, auth: session, data: [credentials, pii]}
+  - {id: f_gw_acct, from: api_gateway, to: account_service, protocol: grpc_tls, auth: mtls, data: [credentials]}
+  - {id: f_gw_esim, from: api_gateway, to: esim_service, protocol: grpc_tls, auth: mtls}
+  - {id: f_acct_db, from: account_service, to: subscriber_db, protocol: sql_tls, auth: workload_identity, data: [pii, payment]}
+  - {id: f_sms, from: account_service, to: sms_gateway, protocol: https, auth: oauth2, data: []}
+  - {id: f_logs, from: account_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_esim_logs, from: esim_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_det, from: log_sink, to: detections, protocol: internal_tls, auth: workload_identity, data: [logs]}

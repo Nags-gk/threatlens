@@ -1,0 +1,33 @@
+name: Wearable health sync (hardened reference)
+description: A fitness tracker syncs over BLE to a phone app, which uploads health data to the cloud; users can export data and share with third-party apps. Modeled on the class of system Fitbit belongs to; not Google's design.
+zones: {internet: 0, body: 1, edge: 2, app: 3, data: 4, partner: 1, security: 5}
+components:
+  - {id: tracker, type: device, zone: body, device_auth: per_device, controls: [hardware_keys, key_rotation]}
+  - {id: phone_app, type: client, zone: internet}
+  - {id: api_gateway, type: gateway, zone: edge, internet_facing: true, controls: [rate_limit, waf, input_validation, generic_errors, non_root]}
+  - id: account_service
+    type: identity_provider
+    zone: app
+    internet_facing: true
+    handles: [login, signup, account_recovery]
+    data: [credentials, pii]
+    controls: [mfa, rate_limit, breached_password_check, bot_detection, reauth, step_up, audit_logging, security_logging, notify_user, key_rotation]
+  - id: sync_service
+    type: service
+    zone: app
+    handles: [sync, data_export, firmware_update, device_pairing]
+    data: [health, location]
+    controls: [authz, anomaly_detection, code_signing, rollback_protection, physical_proof, notify_user, audit_logging, non_root]
+  - {id: health_db, type: datastore, zone: data, data: [health, location], controls: [encryption_at_rest, access_logging]}
+  - {id: partner_app, type: third_party, zone: partner}
+  - {id: log_sink, type: log_sink, zone: security, data: [logs], log_retention_days: 365, controls: [log_integrity, encryption_at_rest]}
+  - {id: detections, type: detection, zone: security, controls: [alerting, non_root]}
+flows:
+  - {id: f_ble, from: tracker, to: phone_app, protocol: ble_secure, auth: device_cert, data: [health]}
+  - {id: f_upload, from: phone_app, to: api_gateway, protocol: https, auth: oauth2, data: [health, location]}
+  - {id: f_gw_sync, from: api_gateway, to: sync_service, protocol: grpc_tls, auth: mtls, data: [health]}
+  - {id: f_gw_acct, from: api_gateway, to: account_service, protocol: grpc_tls, auth: mtls, data: [credentials]}
+  - {id: f_sync_db, from: sync_service, to: health_db, protocol: sql_tls, auth: workload_identity, data: [health, location]}
+  - {id: f_partner, from: sync_service, to: partner_app, protocol: https, auth: oauth2, data: [telemetry]}
+  - {id: f_logs, from: account_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_det, from: log_sink, to: detections, protocol: internal_tls, auth: workload_identity, data: [logs]}

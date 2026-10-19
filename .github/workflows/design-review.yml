@@ -1,0 +1,17 @@
+# Dogfooding: run ThreatLens as a PR check on the example specs in this repo.
+name: Design review
+on:
+  pull_request:
+    paths: ["examples/**.yml"]
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          spec: examples/smart_home_cloud.yml
+          fail-on: high

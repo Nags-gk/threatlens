@@ -1,0 +1,16 @@
+name: AbuseRadar API (as built)
+description: Public FastAPI demo on Cloud Run (github.com/Nags-gk/abuseradar) serving incidents, scoring and Gemini triage to a GitHub Pages dashboard.
+zones: {internet: 0, gcp_edge: 2, gcp_app: 3, gcp_managed: 3}
+components:
+  - {id: dashboard, type: client, zone: internet}
+  - {id: cloud_run_api, type: service, zone: gcp_app, internet_facing: true, handles: [object_api], data: [secrets, logs],
+     controls: [rate_limit, input_validation, generic_errors, non_root, secret_manager, authz, opaque_ids, security_logging]}
+  - {id: gemini, type: third_party, zone: gcp_managed}
+  - {id: cloud_logging, type: log_sink, zone: gcp_managed, data: [logs], log_retention_days: 30, controls: [encryption_at_rest, log_integrity]}
+  - {id: detections, type: detection, zone: gcp_app, controls: [non_root]}
+flows:
+  - {id: f_dash, from: dashboard, to: cloud_run_api, protocol: https, auth: none, data: []}
+  - {id: f_llm, from: cloud_run_api, to: gemini, protocol: https, auth: api_key, data: [telemetry]}
+  - {id: f_logs, from: cloud_run_api, to: cloud_logging, protocol: internal_tls, auth: workload_identity, data: [logs]}
+accepted_risks:
+  - {rule: TL-S01, element: f_dash, reason: Public read-only demo over synthetic data; write-like endpoints are rate-limited and the triage budget is capped per day., owner: nagsgk}

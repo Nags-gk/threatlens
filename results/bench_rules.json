@@ -1,0 +1,14 @@
+{
+  "mutations": 174,
+  "detected": 174,
+  "detection_rate": 1.0,
+  "operators": 33,
+  "rules_exercised": 33,
+  "baseline_findings": {
+    "device_enrollment": 0,
+    "mobile_carrier": 0,
+    "smart_home_cloud": 0,
+    "wearable_sync": 0
+  },
+  "misses": []
+}

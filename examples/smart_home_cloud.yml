@@ -1,0 +1,34 @@
+name: Smart-home device cloud (hardened reference)
+description: Thermostats and cameras paired to user accounts; mobile app controls devices through a public API. Modeled on the class of system Nest belongs to; not Google's design.
+zones: {internet: 0, home: 1, edge: 2, app: 3, data: 4, security: 5}
+components:
+  - {id: mobile_app, type: client, zone: internet}
+  - {id: camera, type: device, zone: home, device_auth: per_device, controls: [hardware_keys, attestation, key_rotation]}
+  - {id: api_gateway, type: gateway, zone: edge, internet_facing: true, controls: [rate_limit, waf, input_validation, generic_errors, non_root]}
+  - id: auth_service
+    type: identity_provider
+    zone: app
+    internet_facing: true
+    handles: [login, signup, account_recovery]
+    data: [credentials, pii]
+    controls: [mfa, rate_limit, breached_password_check, bot_detection, captcha, reauth, step_up, audit_logging, security_logging, notify_user, key_rotation]
+  - id: device_service
+    type: service
+    zone: app
+    handles: [device_pairing, device_checkin, object_api, firmware_update]
+    data: [video, telemetry]
+    controls: [physical_proof, notify_user, per_device_rate_limit, opaque_ids, authz, code_signing, rollback_protection, audit_logging, security_logging, non_root]
+  - {id: user_db, type: datastore, zone: data, data: [pii, credentials], controls: [encryption_at_rest, access_logging]}
+  - {id: clip_store, type: datastore, zone: data, data: [video], controls: [encryption_at_rest, access_logging]}
+  - {id: log_sink, type: log_sink, zone: security, data: [logs], log_retention_days: 400, controls: [log_integrity, encryption_at_rest]}
+  - {id: detections, type: detection, zone: security, data: [logs], controls: [alerting, non_root]}
+flows:
+  - {id: f_app_api, from: mobile_app, to: api_gateway, protocol: https, auth: oauth2, data: [credentials, pii]}
+  - {id: f_api_auth, from: api_gateway, to: auth_service, protocol: grpc_tls, auth: mtls, data: [credentials]}
+  - {id: f_api_dev, from: api_gateway, to: device_service, protocol: grpc_tls, auth: mtls}
+  - {id: f_cam_dev, from: camera, to: device_service, protocol: mqtts, auth: device_cert, data: [video, telemetry]}
+  - {id: f_auth_db, from: auth_service, to: user_db, protocol: sql_tls, auth: workload_identity, data: [pii, credentials]}
+  - {id: f_dev_clips, from: device_service, to: clip_store, protocol: internal_tls, auth: workload_identity, data: [video]}
+  - {id: f_auth_log, from: auth_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_dev_log, from: device_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_log_det, from: log_sink, to: detections, protocol: internal_tls, auth: workload_identity, data: [logs]}

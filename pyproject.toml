@@ -1,0 +1,23 @@
+[project]
+name = "threatlens"
+version = "1.0.0"
+description = "Threat modeling as code: STRIDE design reviews for device platforms, with a seeded-flaw benchmark"
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+llm = ["google-genai>=1.0"]
+
+[project.scripts]
+threatlens = "threatlens.cli:main"
+
+[tool.setuptools]
+packages = ["threatlens"]
+[tool.setuptools.package-data]
+threatlens = ["kb.yml"]
+
+[tool.ruff]
+line-length = 140
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["E501", "E702", "E731"]

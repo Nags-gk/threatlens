@@ -1,0 +1,37 @@
+name: FleetOps (as built, commit 4926f67)
+description: Serverless robot-fleet telemetry on AWS (github.com/Nags-gk/fleetops), modeled from infra/lib/fleetops-stack.ts. Robots post heartbeats with a shared x-fleet-key; a public HTTP API serves the dashboard and on-call triage.
+zones: {internet: 0, warehouse: 1, aws_edge: 2, aws_app: 3, aws_data: 4, aws_managed: 3}
+components:
+  - {id: drive_unit, type: device, zone: warehouse, device_auth: shared_secret}
+  - {id: dashboard, type: client, zone: internet}
+  - {id: http_api, type: gateway, zone: aws_edge, internet_facing: true, controls: [rate_limit, generic_errors, non_root]}
+  - id: ingest_fn
+    type: service
+    zone: aws_app
+    handles: [device_checkin]
+    data: [secrets, telemetry]
+    controls: [input_validation, non_root]
+  - id: query_fn
+    type: service
+    zone: aws_app
+    handles: [object_api, admin]
+    data: [secrets, telemetry]
+    controls: [input_validation, non_root, opaque_ids]
+  - {id: processor_fn, type: service, zone: aws_app, data: [telemetry], controls: [non_root]}
+  - {id: queue, type: queue, zone: aws_data, data: [telemetry], controls: [encryption_at_rest]}
+  - {id: tables, type: datastore, zone: aws_data, data: [telemetry], controls: [encryption_at_rest]}
+  - {id: cloudwatch_logs, type: log_sink, zone: aws_managed, data: [logs], log_retention_days: 14, controls: [encryption_at_rest]}
+  - {id: bedrock, type: third_party, zone: aws_managed}
+flows:
+  - {id: f_heartbeat, from: drive_unit, to: http_api, protocol: https, auth: shared_key, data: [telemetry]}
+  - {id: f_dash_read, from: dashboard, to: http_api, protocol: https, auth: none, data: [telemetry]}
+  - {id: f_api_ingest, from: http_api, to: ingest_fn, protocol: internal_tls, auth: workload_identity, data: [telemetry]}
+  - {id: f_api_query, from: http_api, to: query_fn, protocol: internal_tls, auth: workload_identity}
+  - {id: f_ingest_q, from: ingest_fn, to: queue, protocol: internal_tls, auth: workload_identity, data: [telemetry]}
+  - {id: f_q_proc, from: queue, to: processor_fn, protocol: internal_tls, auth: workload_identity, data: [telemetry]}
+  - {id: f_proc_db, from: processor_fn, to: tables, protocol: internal_tls, auth: workload_identity, data: [telemetry]}
+  - {id: f_query_db, from: query_fn, to: tables, protocol: internal_tls, auth: workload_identity, data: [telemetry]}
+  - {id: f_triage, from: query_fn, to: bedrock, protocol: https, auth: workload_identity, data: [telemetry]}
+  - {id: f_logs, from: query_fn, to: cloudwatch_logs, protocol: internal_tls, auth: workload_identity, data: [logs]}
+accepted_risks:
+  - {rule: TL-T04, element: http_api, reason: API Gateway passes requests through; IngestHandler and QueryHandler validate every field before use., owner: nagsgk}

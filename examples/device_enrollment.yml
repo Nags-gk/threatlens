@@ -1,0 +1,29 @@
+name: Managed-device enrollment (hardened reference)
+description: Company-owned phones enroll into management, receive policies and certificates, and IT admins manage the fleet from a console. Modeled on the class of system Android Enterprise belongs to; not Google's design.
+zones: {internet: 0, corp_device: 1, edge: 2, app: 3, data: 4, admin: 3, security: 5}
+components:
+  - {id: managed_phone, type: device, zone: corp_device, device_auth: per_device, controls: [hardware_keys, attestation, key_rotation]}
+  - {id: enroll_gateway, type: gateway, zone: edge, internet_facing: true, controls: [rate_limit, waf, input_validation, generic_errors, non_root]}
+  - id: enrollment_service
+    type: service
+    zone: app
+    handles: [enrollment, policy_push, device_checkin]
+    data: [policy, secrets]
+    controls: [attestation, notify_user, audit_logging, security_logging, per_device_rate_limit, secret_manager, non_root]
+  - id: admin_console
+    type: admin_console
+    zone: admin
+    internet_facing: true
+    handles: [admin, data_export]
+    controls: [context_aware_access, mfa, audit_logging, anomaly_detection, authz]
+  - {id: fleet_db, type: datastore, zone: data, data: [pii, policy, location], controls: [encryption_at_rest, access_logging]}
+  - {id: log_sink, type: log_sink, zone: security, data: [logs], log_retention_days: 365, controls: [log_integrity, encryption_at_rest]}
+  - {id: detections, type: detection, zone: security, controls: [alerting, non_root]}
+flows:
+  - {id: f_enroll, from: managed_phone, to: enroll_gateway, protocol: https, auth: device_cert, data: [policy]}
+  - {id: f_gw_svc, from: enroll_gateway, to: enrollment_service, protocol: grpc_tls, auth: mtls, data: [policy]}
+  - {id: f_svc_db, from: enrollment_service, to: fleet_db, protocol: sql_tls, auth: workload_identity, data: [pii, policy]}
+  - {id: f_admin_db, from: admin_console, to: fleet_db, protocol: sql_tls, auth: workload_identity, data: [pii, location]}
+  - {id: f_logs, from: enrollment_service, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_admin_logs, from: admin_console, to: log_sink, protocol: internal_tls, auth: workload_identity, data: [logs]}
+  - {id: f_det, from: log_sink, to: detections, protocol: internal_tls, auth: workload_identity, data: [logs]}

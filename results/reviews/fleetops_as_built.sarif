@@ -1,0 +1,659 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ThreatLens",
+          "informationUri": "https://github.com/Nags-gk/threatlens",
+          "rules": [
+            {
+              "id": "TL-E04",
+              "name": "Missing object-level authorization",
+              "shortDescription": {
+                "text": "Missing object-level authorization"
+              },
+              "fullDescription": {
+                "text": "An authenticated user requests another user's objects by changing an ID (IDOR)."
+              },
+              "help": {
+                "text": "Check ownership of every object on every request in the service, not in the client."
+              },
+              "properties": {
+                "tags": [
+                  "Elevation of privilege",
+                  "access",
+                  "CWE-862 Missing Authorization",
+                  "CAPEC-122 Privilege Abuse"
+                ],
+                "security-severity": "8.0"
+              }
+            },
+            {
+              "id": "TL-S01",
+              "name": "Unauthenticated flow crosses a trust boundary",
+              "shortDescription": {
+                "text": "Unauthenticated flow crosses a trust boundary"
+              },
+              "fullDescription": {
+                "text": "Anything that can reach the receiving side can send requests as any caller, because nothing proves who the sender is."
+              },
+              "help": {
+                "text": "Authenticate the flow (OAuth 2.0 for users, mTLS or workload identity for services, per-device certificates for devices) and reject unauthenticated requests at the boundary."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-306 Missing Authentication for Critical Function",
+                  "CAPEC-115 Authentication Bypass"
+                ],
+                "security-severity": "8.0"
+              }
+            },
+            {
+              "id": "TL-S03",
+              "name": "Devices share one fleet-wide credential",
+              "shortDescription": {
+                "text": "Devices share one fleet-wide credential"
+              },
+              "fullDescription": {
+                "text": "Extracting the secret from one device lets an attacker impersonate every device in the fleet."
+              },
+              "help": {
+                "text": "Provision a unique per-device credential at manufacture and support revoking a single device."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-798 Use of Hard-coded Credentials",
+                  "CAPEC-191 Read Sensitive Constants Within an Executable"
+                ],
+                "security-severity": "8.0"
+              }
+            },
+            {
+              "id": "TL-T04",
+              "name": "Internet-facing service writes to a datastore without input validation",
+              "shortDescription": {
+                "text": "Internet-facing service writes to a datastore without input validation"
+              },
+              "fullDescription": {
+                "text": "Unvalidated input reaches queries and parsers, enabling injection and corrupted records."
+              },
+              "help": {
+                "text": "Validate every request against a strict schema at the edge and use parameterized queries."
+              },
+              "properties": {
+                "tags": [
+                  "Tampering",
+                  "data",
+                  "CWE-20 Improper Input Validation"
+                ],
+                "security-severity": "6.4"
+              }
+            },
+            {
+              "id": "TL-I04",
+              "name": "Secrets stored outside a secret manager",
+              "shortDescription": {
+                "text": "Secrets stored outside a secret manager"
+              },
+              "fullDescription": {
+                "text": "Keys in environment files and images leak through repositories, crash dumps and support bundles."
+              },
+              "help": {
+                "text": "Load secrets at runtime from a secret manager with per-service access and rotation."
+              },
+              "properties": {
+                "tags": [
+                  "Information disclosure",
+                  "data",
+                  "CWE-312 Cleartext Storage of Sensitive Information"
+                ],
+                "security-severity": "6.0"
+              }
+            },
+            {
+              "id": "TL-L01",
+              "name": "Authentication events lack security logging fields",
+              "shortDescription": {
+                "text": "Authentication events lack security logging fields"
+              },
+              "fullDescription": {
+                "text": "Without source IP, ASN, device fingerprint and result on each attempt, stuffing, spraying and takeovers cannot be detected or scoped."
+              },
+              "help": {
+                "text": "Log every attempt with timestamp, account, IP, ASN, device fingerprint, user agent, result, and a keyed hash of the attempted secret."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-223 Omission of Security-relevant Information"
+                ],
+                "security-severity": "4.8"
+              }
+            },
+            {
+              "id": "TL-L02",
+              "name": "No detection consumes the security logs",
+              "shortDescription": {
+                "text": "No detection consumes the security logs"
+              },
+              "fullDescription": {
+                "text": "Logs are written but nobody is alerted; abuse is found by users or the press."
+              },
+              "help": {
+                "text": "Stream security logs to a detection pipeline with rules for the abuse cases in this model and an on-call rotation."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-778 Insufficient Logging"
+                ],
+                "security-severity": "4.8"
+              }
+            },
+            {
+              "id": "TL-R01",
+              "name": "Sensitive actions are not audit-logged",
+              "shortDescription": {
+                "text": "Sensitive actions are not audit-logged"
+              },
+              "fullDescription": {
+                "text": "After an incident nobody can say who did what, when, and from where."
+              },
+              "help": {
+                "text": "Write an append-only audit record (actor, action, target, time, source IP, device) for every sensitive action."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-778 Insufficient Logging"
+                ],
+                "security-severity": "4.8"
+              }
+            },
+            {
+              "id": "TL-S04",
+              "name": "Device credential is not bound to hardware",
+              "shortDescription": {
+                "text": "Device credential is not bound to hardware"
+              },
+              "fullDescription": {
+                "text": "A credential copied off the device can be replayed from a server, cloning the device identity."
+              },
+              "help": {
+                "text": "Keep device keys in a secure element and verify key attestation at check-in; alert on one identity seen from two networks."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-522 Insufficiently Protected Credentials",
+                  "T1036 Masquerading"
+                ],
+                "security-severity": "4.8"
+              }
+            },
+            {
+              "id": "TL-A10",
+              "name": "Long-lived device or API keys are never rotated",
+              "shortDescription": {
+                "text": "Long-lived device or API keys are never rotated"
+              },
+              "fullDescription": {
+                "text": "A key leaked years ago still works."
+              },
+              "help": {
+                "text": "Rotate keys on a schedule and on every suspected compromise; keep validity short."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-324 Use of a Key Past its Expiration Date"
+                ],
+                "security-severity": "3.2"
+              }
+            },
+            {
+              "id": "TL-D02",
+              "name": "Device check-in without per-device rate limits",
+              "shortDescription": {
+                "text": "Device check-in without per-device rate limits"
+              },
+              "fullDescription": {
+                "text": "A cloned or buggy device floods check-ins and drowns the signal for the rest of the fleet."
+              },
+              "help": {
+                "text": "Limit check-ins per device identity and alert when one identity exceeds its cadence."
+              },
+              "properties": {
+                "tags": [
+                  "Denial of service",
+                  "abuse",
+                  "CWE-770 Allocation of Resources Without Limits or Throttling"
+                ],
+                "security-severity": "3.2"
+              }
+            },
+            {
+              "id": "TL-L03",
+              "name": "Log retention too short for investigations",
+              "shortDescription": {
+                "text": "Log retention too short for investigations"
+              },
+              "fullDescription": {
+                "text": "Slow campaigns and late-reported takeovers fall outside the retention window, so impact cannot be measured."
+              },
+              "help": {
+                "text": "Keep security logs at least 90 days hot and 1 year cold, subject to privacy review."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-779 Logging of Excessive Data"
+                ],
+                "security-severity": "2.4"
+              }
+            },
+            {
+              "id": "TL-L04",
+              "name": "Logs are not tamper-evident",
+              "shortDescription": {
+                "text": "Logs are not tamper-evident"
+              },
+              "fullDescription": {
+                "text": "An attacker with write access can delete or edit the records of what they did."
+              },
+              "help": {
+                "text": "Ship logs to a separate project with write-only access for producers and object retention locks."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-117 Improper Output Neutralization for Logs"
+                ],
+                "security-severity": "2.4"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "TL-E04",
+          "level": "error",
+          "message": {
+            "text": "Missing object-level authorization on 'query_fn'. Check ownership of every object on every request in the service, not in the client."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "query_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "query_fn/TL-E04"
+          }
+        },
+        {
+          "ruleId": "TL-S01",
+          "level": "error",
+          "message": {
+            "text": "Unauthenticated flow crosses a trust boundary on 'f_dash_read'. Authenticate the flow (OAuth 2.0 for users, mTLS or workload identity for services, per-device certificates for devices) and reject unauthenticated requests at the boundary."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "f_dash_read",
+                  "kind": "flow"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "f_dash_read/TL-S01"
+          }
+        },
+        {
+          "ruleId": "TL-S03",
+          "level": "error",
+          "message": {
+            "text": "Devices share one fleet-wide credential on 'drive_unit'. Provision a unique per-device credential at manufacture and support revoking a single device."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "drive_unit",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "drive_unit/TL-S03"
+          }
+        },
+        {
+          "ruleId": "TL-I04",
+          "level": "error",
+          "message": {
+            "text": "Secrets stored outside a secret manager on 'ingest_fn'. Load secrets at runtime from a secret manager with per-service access and rotation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "ingest_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "ingest_fn/TL-I04"
+          }
+        },
+        {
+          "ruleId": "TL-I04",
+          "level": "error",
+          "message": {
+            "text": "Secrets stored outside a secret manager on 'query_fn'. Load secrets at runtime from a secret manager with per-service access and rotation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "query_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "query_fn/TL-I04"
+          }
+        },
+        {
+          "ruleId": "TL-L01",
+          "level": "error",
+          "message": {
+            "text": "Authentication events lack security logging fields on 'ingest_fn'. Log every attempt with timestamp, account, IP, ASN, device fingerprint, user agent, result, and a keyed hash of the attempted secret."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "ingest_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "ingest_fn/TL-L01"
+          }
+        },
+        {
+          "ruleId": "TL-L02",
+          "level": "error",
+          "message": {
+            "text": "No detection consumes the security logs on 'system'. Stream security logs to a detection pipeline with rules for the abuse cases in this model and an on-call rotation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "system",
+                  "kind": "system"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "system/TL-L02"
+          }
+        },
+        {
+          "ruleId": "TL-R01",
+          "level": "error",
+          "message": {
+            "text": "Sensitive actions are not audit-logged on 'query_fn'. Write an append-only audit record (actor, action, target, time, source IP, device) for every sensitive action."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "query_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "query_fn/TL-R01"
+          }
+        },
+        {
+          "ruleId": "TL-S04",
+          "level": "error",
+          "message": {
+            "text": "Device credential is not bound to hardware on 'drive_unit'. Keep device keys in a secure element and verify key attestation at check-in; alert on one identity seen from two networks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "drive_unit",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "drive_unit/TL-S04"
+          }
+        },
+        {
+          "ruleId": "TL-A10",
+          "level": "warning",
+          "message": {
+            "text": "Long-lived device or API keys are never rotated on 'drive_unit'. Rotate keys on a schedule and on every suspected compromise; keep validity short."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "drive_unit",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "drive_unit/TL-A10"
+          }
+        },
+        {
+          "ruleId": "TL-D02",
+          "level": "warning",
+          "message": {
+            "text": "Device check-in without per-device rate limits on 'ingest_fn'. Limit check-ins per device identity and alert when one identity exceeds its cadence."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "ingest_fn",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "ingest_fn/TL-D02"
+          }
+        },
+        {
+          "ruleId": "TL-L03",
+          "level": "warning",
+          "message": {
+            "text": "Log retention too short for investigations on 'cloudwatch_logs'. Keep security logs at least 90 days hot and 1 year cold, subject to privacy review."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "cloudwatch_logs",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "cloudwatch_logs/TL-L03"
+          }
+        },
+        {
+          "ruleId": "TL-L04",
+          "level": "warning",
+          "message": {
+            "text": "Logs are not tamper-evident on 'cloudwatch_logs'. Ship logs to a separate project with write-only access for producers and object retention locks."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/fleetops_as_built.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "cloudwatch_logs",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "cloudwatch_logs/TL-L04"
+          }
+        }
+      ]
+    }
+  ]
+}

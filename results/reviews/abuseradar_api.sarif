@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ThreatLens",
+          "informationUri": "https://github.com/Nags-gk/threatlens",
+          "rules": [
+            {
+              "id": "TL-S01",
+              "name": "Unauthenticated flow crosses a trust boundary",
+              "shortDescription": {
+                "text": "Unauthenticated flow crosses a trust boundary"
+              },
+              "fullDescription": {
+                "text": "Anything that can reach the receiving side can send requests as any caller, because nothing proves who the sender is."
+              },
+              "help": {
+                "text": "Authenticate the flow (OAuth 2.0 for users, mTLS or workload identity for services, per-device certificates for devices) and reject unauthenticated requests at the boundary."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-306 Missing Authentication for Critical Function",
+                  "CAPEC-115 Authentication Bypass"
+                ],
+                "security-severity": "8.0"
+              }
+            },
+            {
+              "id": "TL-L03",
+              "name": "Log retention too short for investigations",
+              "shortDescription": {
+                "text": "Log retention too short for investigations"
+              },
+              "fullDescription": {
+                "text": "Slow campaigns and late-reported takeovers fall outside the retention window, so impact cannot be measured."
+              },
+              "help": {
+                "text": "Keep security logs at least 90 days hot and 1 year cold, subject to privacy review."
+              },
+              "properties": {
+                "tags": [
+                  "Repudiation",
+                  "logging",
+                  "CWE-779 Logging of Excessive Data"
+                ],
+                "security-severity": "2.4"
+              }
+            },
+            {
+              "id": "TL-S05",
+              "name": "Service-to-service call uses a static API key",
+              "shortDescription": {
+                "text": "Service-to-service call uses a static API key"
+              },
+              "fullDescription": {
+                "text": "Long-lived shared keys leak through logs, configs and laptops and rarely get rotated."
+              },
+              "help": {
+                "text": "Use workload identity or mTLS with short-lived certificates between services."
+              },
+              "properties": {
+                "tags": [
+                  "Spoofing",
+                  "access",
+                  "CWE-798 Use of Hard-coded Credentials"
+                ],
+                "security-severity": "2.4"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "TL-L03",
+          "level": "warning",
+          "message": {
+            "text": "Log retention too short for investigations on 'cloud_logging'. Keep security logs at least 90 days hot and 1 year cold, subject to privacy review."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/abuseradar_api.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "cloud_logging",
+                  "kind": "component"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "cloud_logging/TL-L03"
+          }
+        },
+        {
+          "ruleId": "TL-S05",
+          "level": "warning",
+          "message": {
+            "text": "Service-to-service call uses a static API key on 'f_llm'. Use workload identity or mTLS with short-lived certificates between services."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/real/abuseradar_api.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "f_llm",
+                  "kind": "flow"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "element/rule": "f_llm/TL-S05"
+          }
+        }
+      ]
+    }
+  ]
+}

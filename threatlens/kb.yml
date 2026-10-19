@@ -1,0 +1,445 @@
+# ThreatLens knowledge base. Each entry: when it applies, why it matters, what to change.
+# category is the JD lens: access (who can do what), abuse (misuse of a working feature),
+# logging (can we detect and investigate it), data (exposure of what we hold).
+
+# ---------- Spoofing ----------
+- id: TL-S01
+  title: Unauthenticated flow crosses a trust boundary
+  stride: Spoofing
+  category: access
+  applies_to: flow
+  when: {crosses_boundary: true, auth_in: [none]}
+  likelihood: 4
+  impact: 4
+  cwe: CWE-306 Missing Authentication for Critical Function
+  capec: CAPEC-115 Authentication Bypass
+  threat: Anything that can reach the receiving side can send requests as any caller, because nothing proves who the sender is.
+  recommendation: Authenticate the flow (OAuth 2.0 for users, mTLS or workload identity for services, per-device certificates for devices) and reject unauthenticated requests at the boundary.
+
+- id: TL-S02
+  title: Internet-facing login without multi-factor authentication
+  stride: Spoofing
+  category: access
+  applies_to: component
+  when: {handles_any: [login], internet_facing: true, lacks: [mfa]}
+  likelihood: 4
+  impact: 4
+  cwe: CWE-308 Use of Single-factor Authentication
+  attack: T1078 Valid Accounts
+  threat: A leaked or phished password is enough to take over an account.
+  recommendation: Offer and default to a second factor (passkeys or TOTP); require it on new devices and for sensitive changes.
+
+- id: TL-S03
+  title: Devices share one fleet-wide credential
+  stride: Spoofing
+  category: access
+  applies_to: component
+  when: {type_in: [device], device_auth_in: [shared_secret]}
+  likelihood: 4
+  impact: 5
+  cwe: CWE-798 Use of Hard-coded Credentials
+  capec: CAPEC-191 Read Sensitive Constants Within an Executable
+  threat: Extracting the secret from one device lets an attacker impersonate every device in the fleet.
+  recommendation: Provision a unique per-device credential at manufacture and support revoking a single device.
+
+- id: TL-S04
+  title: Device credential is not bound to hardware
+  stride: Spoofing
+  category: access
+  applies_to: component
+  when: {type_in: [device], lacks: [hardware_keys, attestation]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-522 Insufficiently Protected Credentials
+  attack: T1036 Masquerading
+  threat: A credential copied off the device can be replayed from a server, cloning the device identity.
+  recommendation: Keep device keys in a secure element and verify key attestation at check-in; alert on one identity seen from two networks.
+
+- id: TL-S05
+  title: Service-to-service call uses a static API key
+  stride: Spoofing
+  category: access
+  applies_to: flow
+  when: {auth_in: [api_key, shared_key], from_internet: false, source_type_in: [service, gateway, detection]}
+  likelihood: 2
+  impact: 3
+  cwe: CWE-798 Use of Hard-coded Credentials
+  threat: Long-lived shared keys leak through logs, configs and laptops and rarely get rotated.
+  recommendation: Use workload identity or mTLS with short-lived certificates between services.
+
+# ---------- Tampering ----------
+- id: TL-T01
+  title: Flow crosses a trust boundary in plaintext
+  stride: Tampering
+  category: data
+  applies_to: flow
+  when: {crosses_boundary: true, protocol_in: [http, mqtt, grpc, ble, tcp, sql, smtp]}
+  likelihood: 4
+  impact: 4
+  cwe: CWE-319 Cleartext Transmission of Sensitive Information
+  capec: CAPEC-94 Adversary in the Middle
+  threat: An attacker on the path can read and modify traffic, including tokens and commands.
+  recommendation: Use TLS 1.2+ (HTTPS, MQTTS, gRPC over TLS) or BLE Secure Connections, and pin certificates on devices.
+
+- id: TL-T02
+  title: Firmware updates are not signature-verified
+  stride: Tampering
+  category: access
+  applies_to: component
+  when: {handles_any: [firmware_update], lacks: [code_signing]}
+  likelihood: 3
+  impact: 5
+  cwe: CWE-494 Download of Code Without Integrity Check
+  capec: CAPEC-186 Malicious Software Update
+  threat: Whoever can serve an update image controls every device that installs it.
+  recommendation: Sign images offline and verify the signature on device before install; keep the signing key in an HSM.
+
+- id: TL-T03
+  title: Firmware rollback is not prevented
+  stride: Tampering
+  category: abuse
+  applies_to: component
+  when: {handles_any: [firmware_update], lacks: [rollback_protection]}
+  likelihood: 2
+  impact: 4
+  cwe: CWE-1328 Security Version Number Mutable to Older Versions
+  threat: An attacker installs an older, validly signed image that still has a patched vulnerability.
+  recommendation: Store a monotonic security version on device and refuse images below it.
+
+- id: TL-T04
+  title: Internet-facing service writes to a datastore without input validation
+  stride: Tampering
+  category: data
+  applies_to: component
+  when: {type_in: [service, gateway], internet_facing: true, lacks: [input_validation]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-20 Improper Input Validation
+  threat: Unvalidated input reaches queries and parsers, enabling injection and corrupted records.
+  recommendation: Validate every request against a strict schema at the edge and use parameterized queries.
+
+# ---------- Repudiation / logging ----------
+- id: TL-R01
+  title: Sensitive actions are not audit-logged
+  stride: Repudiation
+  category: logging
+  applies_to: component
+  when: {handles_any: [login, admin, account_recovery, number_port, device_pairing, policy_push, data_export], lacks: [audit_logging]}
+  likelihood: 3
+  impact: 3
+  cwe: CWE-778 Insufficient Logging
+  threat: After an incident nobody can say who did what, when, and from where.
+  recommendation: Write an append-only audit record (actor, action, target, time, source IP, device) for every sensitive action.
+
+- id: TL-L01
+  title: Authentication events lack security logging fields
+  stride: Repudiation
+  category: logging
+  applies_to: component
+  when: {handles_any: [login, signup, sms_otp, device_checkin], lacks: [security_logging]}
+  likelihood: 3
+  impact: 3
+  cwe: CWE-223 Omission of Security-relevant Information
+  threat: Without source IP, ASN, device fingerprint and result on each attempt, stuffing, spraying and takeovers cannot be detected or scoped.
+  recommendation: Log every attempt with timestamp, account, IP, ASN, device fingerprint, user agent, result, and a keyed hash of the attempted secret.
+
+- id: TL-L02
+  title: No detection consumes the security logs
+  stride: Repudiation
+  category: logging
+  applies_to: system
+  when: {missing_component_type: detection}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-778 Insufficient Logging
+  threat: Logs are written but nobody is alerted; abuse is found by users or the press.
+  recommendation: Stream security logs to a detection pipeline with rules for the abuse cases in this model and an on-call rotation.
+
+- id: TL-L03
+  title: Log retention too short for investigations
+  stride: Repudiation
+  category: logging
+  applies_to: component
+  when: {type_in: [log_sink], retention_below: 90}
+  likelihood: 2
+  impact: 3
+  cwe: CWE-779 Logging of Excessive Data
+  threat: Slow campaigns and late-reported takeovers fall outside the retention window, so impact cannot be measured.
+  recommendation: Keep security logs at least 90 days hot and 1 year cold, subject to privacy review.
+
+- id: TL-L04
+  title: Logs are not tamper-evident
+  stride: Repudiation
+  category: logging
+  applies_to: component
+  when: {type_in: [log_sink], lacks: [log_integrity]}
+  likelihood: 2
+  impact: 3
+  cwe: CWE-117 Improper Output Neutralization for Logs
+  threat: An attacker with write access can delete or edit the records of what they did.
+  recommendation: Ship logs to a separate project with write-only access for producers and object retention locks.
+
+# ---------- Information disclosure ----------
+- id: TL-I01
+  title: Sensitive data stored without encryption at rest
+  stride: Information disclosure
+  category: data
+  applies_to: component
+  when: {type_in: [datastore, queue, log_sink], data_any: [credentials, health, location, payment, secrets, video, pii, logs], lacks: [encryption_at_rest]}
+  likelihood: 2
+  impact: 5
+  cwe: CWE-311 Missing Encryption of Sensitive Data
+  threat: A leaked backup, snapshot or disk exposes the data directly.
+  recommendation: Encrypt at rest with managed keys; use application-layer encryption for credentials and health data.
+
+- id: TL-I02
+  title: Object API uses guessable identifiers
+  stride: Information disclosure
+  category: abuse
+  applies_to: component
+  when: {handles_any: [object_api], lacks: [opaque_ids]}
+  likelihood: 4
+  impact: 3
+  cwe: CWE-639 Authorization Bypass Through User-Controlled Key
+  attack: T1087 Account Discovery
+  threat: Sequential IDs let a script walk the ID space to discover devices and accounts.
+  recommendation: Use random 128-bit identifiers, return 404 for objects the caller does not own, and alert on high 4xx ratios.
+
+- id: TL-E04
+  title: Missing object-level authorization
+  stride: Elevation of privilege
+  category: access
+  applies_to: component
+  when: {handles_any: [object_api, data_export, sync], lacks: [authz]}
+  likelihood: 4
+  impact: 5
+  cwe: CWE-862 Missing Authorization
+  capec: CAPEC-122 Privilege Abuse
+  threat: An authenticated user requests another user's objects by changing an ID (IDOR).
+  recommendation: Check ownership of every object on every request in the service, not in the client.
+
+- id: TL-I04
+  title: Secrets stored outside a secret manager
+  stride: Information disclosure
+  category: data
+  applies_to: component
+  when: {type_in: [service, gateway, detection, ota_server], data_any: [secrets], lacks: [secret_manager]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-312 Cleartext Storage of Sensitive Information
+  threat: Keys in environment files and images leak through repositories, crash dumps and support bundles.
+  recommendation: Load secrets at runtime from a secret manager with per-service access and rotation.
+
+- id: TL-I05
+  title: Internet-facing component may leak internals in errors
+  stride: Information disclosure
+  category: data
+  applies_to: component
+  when: {internet_facing: true, type_in: [service, gateway], lacks: [generic_errors]}
+  likelihood: 3
+  impact: 2
+  cwe: CWE-209 Generation of Error Message Containing Sensitive Information
+  threat: Stack traces and verbose errors reveal versions, paths and queries useful for further attacks.
+  recommendation: Return generic errors with a request ID; keep detail in server logs.
+
+- id: TL-I06
+  title: Sensitive data sent to a third party without minimization
+  stride: Information disclosure
+  category: data
+  applies_to: flow
+  when: {target_type_in: [third_party], data_any: [health, location, contacts, pii, video]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-359 Exposure of Private Personal Information
+  threat: A vendor breach or misuse exposes user data that the vendor did not need.
+  recommendation: Send only the fields the vendor needs, pseudonymize identifiers, and record user consent.
+
+# ---------- Denial of service ----------
+- id: TL-D01
+  title: Internet-facing component without rate limiting
+  stride: Denial of service
+  category: abuse
+  applies_to: component
+  when: {internet_facing: true, type_in: [service, gateway, identity_provider], lacks: [rate_limit]}
+  likelihood: 4
+  impact: 3
+  cwe: CWE-770 Allocation of Resources Without Limits or Throttling
+  threat: Floods exhaust capacity, and unlimited attempts make brute force and scraping cheap.
+  recommendation: Rate-limit per IP, per account and per ASN at the edge; return 429 with Retry-After.
+
+- id: TL-D02
+  title: Device check-in without per-device rate limits
+  stride: Denial of service
+  category: abuse
+  applies_to: component
+  when: {handles_any: [device_checkin], lacks: [per_device_rate_limit]}
+  likelihood: 2
+  impact: 3
+  cwe: CWE-770 Allocation of Resources Without Limits or Throttling
+  threat: A cloned or buggy device floods check-ins and drowns the signal for the rest of the fleet.
+  recommendation: Limit check-ins per device identity and alert when one identity exceeds its cadence.
+
+# ---------- Elevation of privilege ----------
+- id: TL-E01
+  title: Admin console reachable from the internet without context-aware access
+  stride: Elevation of privilege
+  category: access
+  applies_to: component
+  when: {type_in: [admin_console], internet_facing: true, lacks: [context_aware_access, ip_allowlist]}
+  likelihood: 3
+  impact: 5
+  cwe: CWE-284 Improper Access Control
+  attack: T1133 External Remote Services
+  threat: A phished admin credential gives full control of the fleet from anywhere.
+  recommendation: Put the console behind context-aware access (managed device + strong auth) and require hardware security keys for admins.
+
+- id: TL-E02
+  title: Over-broad IAM permissions
+  stride: Elevation of privilege
+  category: access
+  applies_to: component
+  when: {iam_in: [broad]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-250 Execution with Unnecessary Privileges
+  attack: T1098 Account Manipulation
+  threat: Compromising this component grants access far beyond what it needs.
+  recommendation: Grant per-resource, per-action roles and review unused permissions every quarter.
+
+- id: TL-E03
+  title: Workload runs as root
+  stride: Elevation of privilege
+  category: access
+  applies_to: component
+  when: {type_in: [service, gateway, detection, ota_server], lacks: [non_root]}
+  likelihood: 2
+  impact: 3
+  cwe: CWE-250 Execution with Unnecessary Privileges
+  threat: A code-execution bug becomes full control of the container and an easier escape path.
+  recommendation: Run as an unprivileged user with a read-only root filesystem and no added capabilities.
+
+# ---------- Abuse of working features ----------
+- id: TL-A01
+  title: Signup and promo flows lack anti-automation
+  stride: Spoofing
+  category: abuse
+  applies_to: component
+  when: {handles_any: [signup, promo], lacks: [captcha, phone_verification, bot_detection]}
+  likelihood: 4
+  impact: 3
+  cwe: CWE-799 Improper Control of Interaction Frequency
+  attack: T1585 Establish Accounts
+  threat: Scripts mass-create accounts to farm referral credit or stage later abuse.
+  recommendation: Add bot detection, verify a phone number before payouts, and hold promo credit until accounts show organic use.
+
+- id: TL-A02
+  title: Login lacks credential-stuffing defenses
+  stride: Spoofing
+  category: abuse
+  applies_to: component
+  when: {handles_any: [login], internet_facing: true, lacks: [breached_password_check, bot_detection]}
+  likelihood: 5
+  impact: 4
+  cwe: CWE-307 Improper Restriction of Excessive Authentication Attempts
+  attack: T1110.004 Credential Stuffing
+  threat: Leaked combo lists are replayed across the user base until reused passwords hit.
+  recommendation: Check passwords against breach corpora, add bot detection, and step up on never-seen devices and hosting ASNs.
+
+- id: TL-A03
+  title: Account recovery or MFA change without re-authentication
+  stride: Spoofing
+  category: abuse
+  applies_to: component
+  when: {handles_any: [account_recovery], lacks: [reauth, step_up]}
+  likelihood: 3
+  impact: 5
+  cwe: CWE-620 Unverified Password Change
+  attack: T1098 Account Manipulation
+  threat: A hijacked session changes the recovery email or MFA and locks the real owner out permanently.
+  recommendation: Require the current second factor for recovery and MFA changes, notify the old email, and delay the change by 24 hours on new devices.
+
+- id: TL-A04
+  title: Device pairing without proof of physical possession
+  stride: Spoofing
+  category: abuse
+  applies_to: component
+  when: {handles_any: [device_pairing], lacks: [physical_proof]}
+  likelihood: 3
+  impact: 5
+  cwe: CWE-287 Improper Authentication
+  threat: An attacker pairs a victim's camera or tracker to their own account remotely and watches or follows them.
+  recommendation: Require a code shown on the device or a button press, and notify all existing household members on every new pairing.
+
+- id: TL-A05
+  title: SMS OTP endpoint can be pumped
+  stride: Denial of service
+  category: abuse
+  applies_to: component
+  when: {handles_any: [sms_otp], lacks: [rate_limit, cooldown]}
+  likelihood: 4
+  impact: 3
+  cwe: CWE-799 Improper Control of Interaction Frequency
+  threat: Bots request OTPs to premium-rate numbers (SMS pumping toll fraud) and flood users with codes.
+  recommendation: Rate-limit per number, per IP and per destination prefix, add cooldowns, and block high-cost destination ranges.
+
+- id: TL-A06
+  title: Number port or eSIM transfer without step-up
+  stride: Spoofing
+  category: abuse
+  applies_to: component
+  when: {handles_any: [number_port], lacks: [step_up]}
+  likelihood: 3
+  impact: 5
+  cwe: CWE-287 Improper Authentication
+  attack: T1111 Multi-Factor Authentication Interception
+  threat: SIM swap moves the victim's number to an attacker device and intercepts every SMS code.
+  recommendation: Require step-up authentication, a port-out PIN, a cooling-off delay with notification, and hold transfers from risky sessions.
+
+- id: TL-A07
+  title: High-risk changes without user notification
+  stride: Repudiation
+  category: abuse
+  applies_to: component
+  when: {handles_any: [account_recovery, device_pairing, number_port, enrollment], lacks: [notify_user]}
+  likelihood: 3
+  impact: 3
+  cwe: CWE-778 Insufficient Logging
+  threat: The owner does not learn their account changed until damage is done, so the attacker has time.
+  recommendation: Notify the owner on every security-relevant change through a channel the attacker does not control.
+
+- id: TL-A08
+  title: Enrollment accepts unattested devices
+  stride: Spoofing
+  category: access
+  applies_to: component
+  when: {handles_any: [enrollment], lacks: [attestation]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-290 Authentication Bypass by Spoofing
+  threat: An emulator or rooted device enrolls into a managed fleet and receives corporate policies, certificates and data.
+  recommendation: Require hardware-backed key attestation and verified boot state before enrollment.
+
+- id: TL-A09
+  title: Bulk data export without anomaly detection
+  stride: Information disclosure
+  category: abuse
+  applies_to: component
+  when: {handles_any: [data_export], lacks: [anomaly_detection]}
+  likelihood: 3
+  impact: 4
+  cwe: CWE-799 Improper Control of Interaction Frequency
+  attack: T1530 Data from Cloud Storage
+  threat: A compromised account or insider exports everyone's data and nothing notices the volume.
+  recommendation: Alert on export volume against the account's baseline and require step-up for large exports.
+
+- id: TL-A10
+  title: Long-lived device or API keys are never rotated
+  stride: Spoofing
+  category: access
+  applies_to: component
+  when: {type_in: [device, identity_provider], lacks: [key_rotation]}
+  likelihood: 2
+  impact: 4
+  cwe: CWE-324 Use of a Key Past its Expiration Date
+  threat: A key leaked years ago still works.
+  recommendation: Rotate keys on a schedule and on every suspected compromise; keep validity short.

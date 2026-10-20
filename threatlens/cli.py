@@ -63,7 +63,8 @@ def main(argv=None) -> int:
         if not key:
             print("GEMINI_API_KEY not set", file=sys.stderr)
             return 2
-        lr = llm.bench_llm(key, a.sample)
+        lr = llm.bench_llm(key, a.sample, progress=lambda rows: (print(f"  {len(rows)} cases, {sum(r['exact'] for r in rows)} exact", flush=True),
+                                                              (out / "bench_llm.partial.json").write_text(json.dumps(rows, indent=2))))
         (out / "bench_llm.json").write_text(json.dumps(lr, indent=2))
         print(f"llm ({lr['model']}): {lr['exact_hits']}/{lr['cases']} exact, concept rate {lr['concept_rate']}, guard rejected {lr['guard_rejections']}/{lr['total_threats']}")
     return 0

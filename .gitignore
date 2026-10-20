@@ -5,3 +5,4 @@ __pycache__/
 web/py/
 web/data/
 .env
+results/bench_llm.partial.json

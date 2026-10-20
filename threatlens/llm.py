@@ -56,18 +56,18 @@ def _call(prompt: str, api_key: str) -> list[dict]:
     from google import genai
     from google.genai import types
     client = genai.Client(api_key=api_key)
-    for attempt in range(4):
+    last = None
+    for attempt in range(5):
         try:
             resp = client.models.generate_content(
                 model=MODEL, contents=prompt,
-                config=types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json", response_schema=SCHEMA))
+                config=types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json", response_schema=SCHEMA,
+                                                   http_options=types.HttpOptions(timeout=120_000)))
             return json.loads(resp.text)["threats"]
-        except Exception as e:  # rate limits on the free tier: back off and retry
-            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                time.sleep(20 * (attempt + 1))
-                continue
-            raise
-    raise RuntimeError("Gemini rate limit: retries exhausted")
+        except Exception as e:  # rate limits, resets, timeouts: back off and retry
+            last = e
+            time.sleep(15 * (attempt + 1))
+    raise RuntimeError(f"Gemini call failed after retries: {type(last).__name__}: {str(last)[:200]}")
 
 
 def guard(threats: list[dict], spec: model.Spec, kb, findings: list[Finding]) -> tuple[list[Finding], list[str]]:
@@ -111,7 +111,7 @@ def augment(raw: dict, api_key: str | None = None, n: int = 8) -> dict:
     return dict(mode="rules+llm", findings=[asdict(f) for f in findings], llm=[asdict(f) for f in extra], rejected=rejected)
 
 
-def bench_llm(api_key: str, sample: int = 40, seed: int = 7, pause_s: float = 7.0) -> dict:
+def bench_llm(api_key: str, sample: int = 40, seed: int = 7, pause_s: float = 7.0, progress=None) -> dict:
     """The model alone, without rule findings: does it raise the seeded flaw on the right element?"""
     kb = engine.load_kb()
     muts = bench.mutations()
@@ -133,6 +133,8 @@ def bench_llm(api_key: str, sample: int = 40, seed: int = 7, pause_s: float = 7.
         rows.append(dict(arch=name, op=m.op, rule=m.expected_rule, element=m.element, exact=exact, concept_anywhere=concept,
                          threats=len(threats), rejected_by_guard=len(bad), latency_s=round(time.time() - t0, 1)))
         time.sleep(pause_s)
+        if progress:
+            progress(rows)
     n = len(rows)
     return dict(model=MODEL, cases=n, exact_hits=sum(r["exact"] for r in rows),
                 exact_rate=round(sum(r["exact"] for r in rows) / n, 4),

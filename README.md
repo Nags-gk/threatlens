@@ -46,7 +46,7 @@ giving 174 cases.
 | Reviewer | Flaws found on the right element | Findings on clean baselines |
 |---|---:|---:|
 | Rule engine | **174 / 174** | **0** |
-| Gemini 3.8 Flash alone | see [docs/benchmark.md](docs/benchmark.md) | |
+| Gemini 3.5 Flash alone | see [docs/benchmark.md](docs/benchmark.md) | |
 
 The first run found 170/174: the knowledge base did not treat security logs as
 sensitive data. That gap is fixed and now guarded in CI. Caveat: one author wrote both

@@ -18,7 +18,7 @@ from dataclasses import asdict
 from . import bench, engine, model
 from .engine import Finding
 
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 STRIDE = {"Spoofing", "Tampering", "Repudiation", "Information disclosure", "Denial of service", "Elevation of privilege"}
 LENSES = {"access", "abuse", "logging", "data"}
 

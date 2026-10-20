@@ -24,7 +24,7 @@ names that flaw on the element that was changed.
 | Reviewer | Seeded flaws found on the right element | Findings on clean baselines |
 |---|---:|---:|
 | ThreatLens rule engine (35 rules) | **174 / 174** | 0 |
-| Gemini 3.8 Flash alone, given only the spec | run `GEMINI_API_KEY=... threatlens bench --llm` (results in `results/bench_llm.json`) | |
+| Gemini 3.5 Flash alone, given only the spec | run `GEMINI_API_KEY=... threatlens bench --llm` (results in `results/bench_llm.json`) | |
 
 The first run of the rule engine scored 170/174. The 4 misses were the same gap in
 every baseline: the encryption-at-rest rule did not treat a log store as sensitive,

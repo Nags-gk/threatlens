@@ -122,11 +122,15 @@ def bench_llm(api_key: str, sample: int = 40, seed: int = 7, pause_s: float = 7.
             by_rule[m.expected_rule] = by_rule.get(m.expected_rule, 0) + 1
             picked.append((name, m))
     picked = picked[:sample]
-    rows = []
+    rows, errors = [], []
     for name, m in picked:
         spec = model.load(m.spec)
         t0 = time.time()
-        threats = _call(_prompt(m.spec, kb, None, 10), api_key)
+        try:
+            threats = _call(_prompt(m.spec, kb, None, 10), api_key)
+        except RuntimeError as e:  # provider overloaded for minutes: record and move on, never fake a result
+            errors.append(dict(arch=name, op=m.op, rule=m.expected_rule, error=str(e)[:160]))
+            continue
         ok, bad = guard(threats, spec, kb, [])
         exact = any(f.rule == m.expected_rule and f.element == m.element for f in ok)
         concept = any(f.rule == m.expected_rule for f in ok)
@@ -136,7 +140,7 @@ def bench_llm(api_key: str, sample: int = 40, seed: int = 7, pause_s: float = 7.
         if progress:
             progress(rows)
     n = len(rows)
-    return dict(model=MODEL, cases=n, exact_hits=sum(r["exact"] for r in rows),
+    return dict(model=MODEL, cases=n, failed_calls=errors, exact_hits=sum(r["exact"] for r in rows),
                 exact_rate=round(sum(r["exact"] for r in rows) / n, 4),
                 concept_rate=round(sum(r["concept_anywhere"] for r in rows) / n, 4),
                 guard_rejections=sum(r["rejected_by_guard"] for r in rows), total_threats=sum(r["threats"] for r in rows), rows=rows)

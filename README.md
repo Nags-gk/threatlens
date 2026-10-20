@@ -46,9 +46,9 @@ giving 174 cases.
 | Reviewer | Flaws found on the right element | Findings on clean baselines |
 |---|---:|---:|
 | Rule engine | **174 / 174** | **0** |
-| Gemini 3.5 Flash alone | see [docs/benchmark.md](docs/benchmark.md) | |
+| Gemini 3.1 Flash-Lite alone, no hints (33 cases, one-two per rule) | **16 / 33** (48%); right concept anywhere 61% | n/a |
 
-The first run found 170/174: the knowledge base did not treat security logs as
+Gemini on its own caught the headline flaws but missed most logging, audit and notification gaps ([details](docs/benchmark.md#what-the-llm-missed)). The rule engine's first run found 170/174: the knowledge base did not treat security logs as
 sensitive data. That gap is fixed and now guarded in CI. Caveat: one author wrote both
 the rules and the mutations, so this is a regression suite rather than proof of
 real-world recall ([details](docs/benchmark.md#what-the-numbers-do-and-do-not-show)).

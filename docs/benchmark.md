@@ -24,12 +24,24 @@ names that flaw on the element that was changed.
 | Reviewer | Seeded flaws found on the right element | Findings on clean baselines |
 |---|---:|---:|
 | ThreatLens rule engine (35 rules) | **174 / 174** | 0 |
-| Gemini 3.5 Flash alone, given only the spec | run `GEMINI_API_KEY=... threatlens bench --llm` (results in `results/bench_llm.json`) | |
+| Gemini 3.1 Flash-Lite alone, given only the spec (33 cases) | **16 / 33** (48%); right concept on any element 61% | n/a |
 
 The first run of the rule engine scored 170/174. The 4 misses were the same gap in
 every baseline: the encryption-at-rest rule did not treat a log store as sensitive,
 though security logs hold IP addresses and account IDs. The knowledge base was fixed
 to include `logs`, and the benchmark now guards that behaviour in CI.
+
+### What the LLM missed
+Gemini reliably raised the headline threats: unauthenticated or plaintext hops, missing
+stuffing defenses, recovery without re-authentication, remote device pairing, SMS pumping,
+internet-exposed admin consoles and broad IAM. It missed most of the quieter ones: missing
+audit and security logging (TL-R01, TL-L01), silent security changes with no user
+notification (TL-A07), unrotated keys (TL-A10), root containers (TL-E03) and verbose errors
+(TL-I05). Those are the logging and hygiene findings a design review is supposed to catch
+before launch, which is the case for running the rule engine first and the LLM second. The
+guard rejected none of its 330 suggestions; every one named a real element and a valid
+category. `gemini-3.5-flash` was tried first and abandoned after repeated 503 "high demand"
+errors; failed calls are recorded in `failed_calls`, never scored.
 
 ## What the numbers do and do not show
 The same author wrote the operators and the rules, so the rule-engine score mainly

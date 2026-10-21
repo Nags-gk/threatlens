@@ -27,9 +27,19 @@ I modeled two of my own deployed projects from their source and reviewed them.
 | High | No security detection on API abuse; only operational alarms | four CloudWatch alarms, all operational |
 | Medium | Logs kept 14 days, too short to investigate slow abuse | `logRetention: TWO_WEEKS` |
 
-The first finding means anyone who learns the API URL can close incidents and silence
-on-call. The fix is an authorizer on the write routes and per-device credentials (AWS
-IoT Core with X.509) for robots.
+The first finding meant anyone who learned the API URL could close incidents and silence
+on-call. **Fixed in FleetOps** ([what changed](https://github.com/Nags-gk/fleetops#security-review-and-fixes)):
+write routes now require an operator key held in Secrets Manager, keys left Lambda environment
+variables, every write is audit-logged, and logs are kept 90 days. The re-review
+([after](results/reviews/fleetops_after_fix.md)) shows the result:
+
+| Review | Critical | High | Medium | Accepted |
+|---|---:|---:|---:|---:|
+| FleetOps as built | 3 | 6 | 4 | 1 |
+| FleetOps after fixes | **1** | **3** | 3 | 2 |
+
+The remaining critical is one key shared by every robot. It is now rotatable in Secrets Manager,
+but the real fix is per-device certificates (AWS IoT Core), which is the next change.
 
 **[AbuseRadar](https://github.com/Nags-gk/abuseradar)** API (Cloud Run): one accepted
 risk (public read-only demo) and two open medium findings: Gemini is called with an API
